@@ -10,6 +10,7 @@ var examples = new (string Title, Func<Task> Run)[]
     ("async / await (iş bekler, işçi beklemez)",  AsyncAwait.RunAsync),
     ("Multi-thread (tek garson vs çok garson)",   MultiThreading.RunAsync),
     ("Race Condition ve lock (kasa örneği)",      RaceCondition.RunAsync),
+        ("Banka Hesabı (lock alıştırması)",           BankaHesabiOrnegi.RunAsync),
 };
 
 // Komut satırından numara verilirse direkt o örneği çalıştır: dotnet run -- 3
