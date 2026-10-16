@@ -1,83 +1,83 @@
 ﻿namespace ThreadsPractice.Examples;
 
 /// <summary>
-/// ALIŞTIRMA: Thread-safe banka hesabı
-/// Birden fazla müşteri (thread) aynı anda para yatırıp çekiyor.
-/// lock sayesinde bakiye bozulmuyor.
+/// EXERCISE: Thread-safe bank account
+/// Multiple customers (threads) deposit and withdraw money at the same time.
+/// Thanks to lock, the balance never gets corrupted.
 /// </summary>
-public class BankaHesabi
+public class BankAccount
 {
-    private decimal _bakiye;
-    private readonly object _kilit = new();
+    private decimal _balance;
+    private readonly object _lock = new();
 
-    public BankaHesabi(decimal baslangicBakiyesi)
+    public BankAccount(decimal initialBalance)
     {
-        _bakiye = baslangicBakiyesi;
+        _balance = initialBalance;
     }
 
-    // Okurken de kilitliyoruz: decimal 128 bit olduğu için okuma işlemi tek adımda yapılmaz.
-    // Kilitlemezsek, başka bir thread yazarken yarım kalmış bir değer okuyabiliriz.
-    public decimal Bakiye
+    // We lock while reading too: decimal is 128 bits, so reading it is not a single-step operation.
+    // Without the lock, we could read a half-written value while another thread is writing.
+    public decimal Balance
     {
         get
         {
-            lock (_kilit)
+            lock (_lock)
             {
-                return _bakiye;
+                return _balance;
             }
         }
     }
 
-    public void ParaYatir(decimal miktar)
+    public void Deposit(decimal amount)
     {
-        lock (_kilit)
+        lock (_lock)
         {
-            _bakiye += miktar;
+            _balance += amount;
         }
     }
 
-    public bool ParaCek(decimal miktar)
+    public bool Withdraw(decimal amount)
     {
-        // Kontrol ve düşme işlemi AYNI lock içinde olmalı.
-        // Ayrı olsaydı iki müşteri aynı anda "bakiye yeterli" görüp
-        // ikisi birden çekebilirdi ve bakiye eksiye düşerdi.
-        lock (_kilit)
+        // The check and the subtraction must be inside the SAME lock.
+        // If they were separate, two customers could both see "balance is enough"
+        // at the same time, both withdraw, and the balance would go negative.
+        lock (_lock)
         {
-            if (_bakiye < miktar)
+            if (_balance < amount)
                 return false;
 
-            _bakiye -= miktar;
+            _balance -= amount;
             return true;
         }
     }
 }
 
-public static class BankaHesabiOrnegi
+public static class BankAccountExample
 {
-    private const int MusteriSayisi = 10;
-    private const int IslemSayisi = 1000;
+    private const int CustomerCount = 10;
+    private const int TransactionCount = 1000;
 
     public static async Task RunAsync()
     {
-        var hesap = new BankaHesabi(100_000);
+        var account = new BankAccount(100_000);
 
-        // 10 müşteri aynı anda işlem yapıyor.
-        // Her müşteri 1000 kez 10 TL yatırıyor ve 1000 kez 5 TL çekiyor.
-        // Beklenen bakiye: 100.000 + 100.000 - 50.000 = 150.000 TL
-        var musteriler = Enumerable.Range(1, MusteriSayisi).Select(_ => Task.Run(() =>
+        // 10 customers are making transactions at the same time.
+        // Each customer deposits $10 1000 times and withdraws $5 1000 times.
+        // Expected balance: 100,000 + 100,000 - 50,000 = $150,000
+        var customers = Enumerable.Range(1, CustomerCount).Select(_ => Task.Run(() =>
         {
-            for (int i = 0; i < IslemSayisi; i++)
+            for (int i = 0; i < TransactionCount; i++)
             {
-                hesap.ParaYatir(10);
-                hesap.ParaCek(5);
+                account.Deposit(10);
+                account.Withdraw(5);
             }
         }));
 
-        // Bütün müşterilerin işi bitene kadar bekle
-        await Task.WhenAll(musteriler);
+        // Wait until all customers are done
+        await Task.WhenAll(customers);
 
-        const decimal beklenen = 150_000;
-        var durum = hesap.Bakiye == beklenen ? "✅ doğru" : "❌ bakiye bozuldu!";
-        Console.WriteLine($"Son bakiye: {hesap.Bakiye:N0} TL (beklenen: {beklenen:N0} TL)  {durum}");
+        const decimal expected = 150_000;
+        var status = account.Balance == expected ? "✅ correct" : "❌ balance corrupted!";
+        Console.WriteLine($"Final balance: ${account.Balance:N0} (expected: ${expected:N0})  {status}");
     }
 }

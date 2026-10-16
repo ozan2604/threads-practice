@@ -3,51 +3,51 @@ using System.Diagnostics;
 namespace ThreadsPractice.Examples;
 
 /// <summary>
-/// KONU: async / await
-/// "İş bekler, işçi beklemez."
-/// await: metot, task bitene kadar sonraki satıra geçmez, AMA thread'i kilitlemez.
-///        Thread o sırada serbest kalır ve başka işlere bakar.
-/// .Result / .Wait(): thread'i KİLİTLER (garson mutfak kapısında dikilir).
+/// TOPIC: async / await
+/// "The job waits, the worker doesn't."
+/// await: the method doesn't move to the next line until the task finishes, BUT it doesn't block the thread.
+///        The thread is freed in the meantime and handles other work.
+/// .Result / .Wait(): BLOCKS the thread (the waiter just stands at the kitchen door).
 /// </summary>
 public static class AsyncAwait
 {
     public static async Task RunAsync()
     {
-        // 1) await sonrası kod farklı bir thread'de devam edebilir
-        Console.WriteLine($"Sipariş verildi.          [Thread {Environment.CurrentManagedThreadId}]");
-        var yemek = await MutfakAsync("Kebap");
-        Console.WriteLine($"{yemek} masaya götürüldü. [Thread {Environment.CurrentManagedThreadId}]");
-        Console.WriteLine("NOT: Thread Id değişmiş olabilir. Yemek hazır olunca müsait olan bir garson devam etti.");
+        // 1) Code after await may continue on a different thread
+        Console.WriteLine($"Order placed.             [Thread {Environment.CurrentManagedThreadId}]");
+        var dish = await KitchenAsync("Kebab");
+        Console.WriteLine($"{dish} served to the table. [Thread {Environment.CurrentManagedThreadId}]");
+        Console.WriteLine("NOTE: The Thread Id may have changed. When the food was ready, whichever waiter was free took over.");
 
-        // 2) await sırayla beklerken: 3 yemek x 1 saniye = ~3 saniye
+        // 2) Awaiting one by one: 3 dishes x 1 second = ~3 seconds
         Console.WriteLine();
         var sw = Stopwatch.StartNew();
-        await MutfakAsync("Çorba");
-        await MutfakAsync("Pilav");
-        await MutfakAsync("Tatlı");
-        Console.WriteLine($"Sırayla await: {sw.ElapsedMilliseconds} ms");
+        await KitchenAsync("Soup");
+        await KitchenAsync("Rice");
+        await KitchenAsync("Dessert");
+        Console.WriteLine($"Sequential await: {sw.ElapsedMilliseconds} ms");
 
-        // 3) Hepsini aynı anda mutfağa verip birlikte beklersek: ~1 saniye
+        // 3) If we send them all to the kitchen at once and wait together: ~1 second
         sw.Restart();
-        var sonuclar = await Task.WhenAll(
-            MutfakAsync("Çorba"),
-            MutfakAsync("Pilav"),
-            MutfakAsync("Tatlı"));
-        Console.WriteLine($"Task.WhenAll : {sw.ElapsedMilliseconds} ms -> {string.Join(", ", sonuclar)}");
+        var results = await Task.WhenAll(
+            KitchenAsync("Soup"),
+            KitchenAsync("Rice"),
+            KitchenAsync("Dessert"));
+        Console.WriteLine($"Task.WhenAll    : {sw.ElapsedMilliseconds} ms -> {string.Join(", ", results)}");
 
-        // 4) Kilitleyen (bloklayan) kullanım. Konsolda deadlock olmaz ama thread boşa bekler.
-        //    UI uygulamalarında ve eski ASP.NET'te bu kullanım DEADLOCK'a yol açabilir.
+        // 4) Blocking usage. No deadlock in a console app, but the thread waits for nothing.
+        //    In UI apps and legacy ASP.NET this usage can cause a DEADLOCK.
         sw.Restart();
-        var bloklu = MutfakAsync("Salata").Result; // ❌ yapma
-        Console.WriteLine($".Result ile  : {sw.ElapsedMilliseconds} ms -> {bloklu} (bu sürede thread hiçbir şey yapamadı)");
+        var blocked = KitchenAsync("Salad").Result; // ❌ don't do this
+        Console.WriteLine($"With .Result    : {sw.ElapsedMilliseconds} ms -> {blocked} (the thread couldn't do anything during this time)");
     }
 
-    // Async metot isimleri "Async" ile biter ve Task / Task<T> döner
-    private static async Task<string> MutfakAsync(string yemek)
+    // Async method names end with "Async" and return Task / Task<T>
+    private static async Task<string> KitchenAsync(string dish)
     {
-        // Task.Delay = thread'i kilitlemeden beklemek (veritabanı veya API çağrısı gibi düşün)
-        // Thread.Sleep olsaydı thread'i kilitlerdi
+        // Task.Delay = waiting without blocking the thread (think of a database or API call)
+        // Thread.Sleep would block the thread
         await Task.Delay(1000);
-        return yemek;
+        return dish;
     }
 }

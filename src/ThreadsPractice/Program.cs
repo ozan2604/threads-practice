@@ -5,15 +5,15 @@ Console.OutputEncoding = Encoding.UTF8;
 
 var examples = new (string Title, Func<Task> Run)[]
 {
-    ("Thread Temelleri (garson örneği)",          ThreadBasics.RunAsync),
-    ("Thread vs Task",                            ThreadVsTask.RunAsync),
-    ("async / await (iş bekler, işçi beklemez)",  AsyncAwait.RunAsync),
-    ("Multi-thread (tek garson vs çok garson)",   MultiThreading.RunAsync),
-    ("Race Condition ve lock (kasa örneği)",      RaceCondition.RunAsync),
-        ("Banka Hesabı (lock alıştırması)",           BankaHesabiOrnegi.RunAsync),
+    ("Thread Basics (waiter example)",                    ThreadBasics.RunAsync),
+    ("Thread vs Task",                                    ThreadVsTask.RunAsync),
+    ("async / await (the job waits, the worker doesn't)", AsyncAwait.RunAsync),
+    ("Multi-thread (one waiter vs many waiters)",         MultiThreading.RunAsync),
+    ("Race Condition and lock (cash register example)",   RaceCondition.RunAsync),
+    ("Bank Account (lock exercise)",                      BankAccountExample.RunAsync),
 };
 
-// Komut satırından numara verilirse direkt o örneği çalıştır: dotnet run -- 3
+// If a number is passed on the command line, run that example directly: dotnet run -- 3
 if (args.Length > 0 && int.TryParse(args[0], out var direct) && direct >= 1 && direct <= examples.Length)
 {
     await RunExample(direct);
@@ -23,11 +23,11 @@ if (args.Length > 0 && int.TryParse(args[0], out var direct) && direct >= 1 && d
 while (true)
 {
     Console.WriteLine();
-    Console.WriteLine("=== THREADS PRATİK ===");
+    Console.WriteLine("=== THREADS PRACTICE ===");
     for (int i = 0; i < examples.Length; i++)
         Console.WriteLine($"{i + 1}) {examples[i].Title}");
-    Console.WriteLine("0) Çıkış");
-    Console.Write("Seçim: ");
+    Console.WriteLine("0) Exit");
+    Console.Write("Choice: ");
 
     var input = Console.ReadLine();
     if (input is null || input == "0") break;
@@ -35,7 +35,7 @@ while (true)
     if (int.TryParse(input, out var choice) && choice >= 1 && choice <= examples.Length)
         await RunExample(choice);
     else
-        Console.WriteLine("Geçersiz seçim.");
+        Console.WriteLine("Invalid choice.");
 }
 
 async Task RunExample(int number)
