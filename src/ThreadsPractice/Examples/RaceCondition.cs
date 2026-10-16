@@ -1,61 +1,61 @@
 namespace ThreadsPractice.Examples;
 
 /// <summary>
-/// KONU: Race Condition ve lock
-/// Birden fazla thread aynı veriyi aynı anda değiştirirse sonuç bozulur.
-/// Çözüm: lock (kasanın önüne kapı koymak, içeride biri varsa diğeri bekler).
+/// TOPIC: Race Condition and lock
+/// If multiple threads change the same data at the same time, the result gets corrupted.
+/// Solution: lock (put a door in front of the cash register; if someone is inside, the others wait).
 /// </summary>
 public static class RaceCondition
 {
-    private const int GarsonSayisi = 10;
-    private const int HerGarsonunEklemeSayisi = 100_000;
-    private const int Beklenen = GarsonSayisi * HerGarsonunEklemeSayisi;
+    private const int WaiterCount = 10;
+    private const int AdditionsPerWaiter = 100_000;
+    private const int Expected = WaiterCount * AdditionsPerWaiter;
 
-    private static readonly object _kilit = new();
+    private static readonly object _lock = new();
 
     public static async Task RunAsync()
     {
-        Console.WriteLine($"{GarsonSayisi} garson, her biri kasaya {HerGarsonunEklemeSayisi:N0} kez 1 TL ekliyor.");
-        Console.WriteLine($"Beklenen kasa: {Beklenen:N0} TL");
+        Console.WriteLine($"{WaiterCount} waiters, each adding $1 to the register {AdditionsPerWaiter:N0} times.");
+        Console.WriteLine($"Expected register total: ${Expected:N0}");
         Console.WriteLine();
 
-        // 1) ❌ Kilitsiz: race condition
-        // kasa++ aslında 3 adımdır: OKU -> 1 EKLE -> YAZ
-        // İki garson aynı anda okursa birinin eklediği para kaybolur.
-        int kasa = 0;
-        await GarsonlariCalistir(() => kasa++);
-        Yazdir("Kilitsiz (kasa++)", kasa);
+        // 1) ❌ Without lock: race condition
+        // register++ is actually 3 steps: READ -> ADD 1 -> WRITE
+        // If two waiters read at the same time, the money one of them added is lost.
+        int register = 0;
+        await RunWaiters(() => register++);
+        Print("No lock (register++)", register);
 
-        // 2) ✅ lock: aynı anda sadece bir garson kasaya dokunabilir
-        kasa = 0;
-        await GarsonlariCalistir(() =>
+        // 2) ✅ lock: only one waiter can touch the register at a time
+        register = 0;
+        await RunWaiters(() =>
         {
-            lock (_kilit)
+            lock (_lock)
             {
-                kasa++;
+                register++;
             }
         });
-        Yazdir("lock ile", kasa);
+        Print("With lock", register);
 
-        // 3) ✅ Interlocked: basit sayısal işlemler için tek adımda (atomik) artırma, lock'tan hızlıdır
-        kasa = 0;
-        await GarsonlariCalistir(() => Interlocked.Increment(ref kasa));
-        Yazdir("Interlocked ile", kasa);
+        // 3) ✅ Interlocked: single-step (atomic) increment for simple numeric operations, faster than lock
+        register = 0;
+        await RunWaiters(() => Interlocked.Increment(ref register));
+        Print("With Interlocked", register);
     }
 
-    private static Task GarsonlariCalistir(Action paraEkle)
+    private static Task RunWaiters(Action addMoney)
     {
-        var garsonlar = Enumerable.Range(0, GarsonSayisi).Select(_ => Task.Run(() =>
+        var waiters = Enumerable.Range(0, WaiterCount).Select(_ => Task.Run(() =>
         {
-            for (int i = 0; i < HerGarsonunEklemeSayisi; i++)
-                paraEkle();
+            for (int i = 0; i < AdditionsPerWaiter; i++)
+                addMoney();
         }));
-        return Task.WhenAll(garsonlar);
+        return Task.WhenAll(waiters);
     }
 
-    private static void Yazdir(string baslik, int kasa)
+    private static void Print(string title, int register)
     {
-        var durum = kasa == Beklenen ? "✅ doğru" : $"❌ {Beklenen - kasa:N0} TL kayboldu!";
-        Console.WriteLine($"{baslik,-20}: {kasa,12:N0} TL  {durum}");
+        var status = register == Expected ? "✅ correct" : $"❌ ${Expected - register:N0} lost!";
+        Console.WriteLine($"{title,-20}: {register,12:N0} $  {status}");
     }
 }
